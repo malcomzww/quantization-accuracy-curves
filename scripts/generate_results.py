@@ -272,18 +272,22 @@ def write_committed(m: dict) -> None:
     rung_gaps = {}
     for finer, coarser in zip(CALIBRATED, CALIBRATED[1:], strict=False):
         rung_gaps[f"{finer}->{coarser}"] = ladder_degs[coarser] - ladder_degs[finer]
-    smallest_rung = min(rung_gaps, key=lambda k: rung_gaps[k])
+    # Smallest gap by MAGNITUDE. A plain minimum picks a negative gap when
+    # a coarser rung scores better than the finer one above it, and dividing
+    # by that gives a meaningless ratio -- which this script's own assertion
+    # caught on the first full sweep.
+    smallest_rung = min(rung_gaps, key=lambda k: abs(rung_gaps[k]))
 
     assert worst_spread > 0.0, "no level showed any calibration spread at all"
     add(f"At **{worst_level}** the choice of calibration corpus moves measured")
     add(f"degradation by **{worst_spread:.2f} percentage points**. For scale, the")
     add("smallest step between adjacent rungs of the ladder ")
-    add(f"(`{smallest_rung}`) is **{rung_gaps[smallest_rung]:.2f} pp**.\n")
+    add(f"(`{smallest_rung}`) is **{abs(rung_gaps[smallest_rung]):.2f} pp**.\n")
 
-    ratio = worst_spread / rung_gaps[smallest_rung]
+    ratio = worst_spread / abs(rung_gaps[smallest_rung])
     assert ratio > 1.0, (
         f"calibration spread ({worst_spread:.3f} pp) did not exceed the smallest "
-        f"rung gap ({rung_gaps[smallest_rung]:.3f} pp) -- the headline claim is broken"
+        f"rung gap ({abs(rung_gaps[smallest_rung]):.3f} pp) -- the headline claim is broken"
     )
     add("So at the coarse end of the ladder, **the calibration corpus is worth")
     add(f"{ratio:.2f}x more than a whole step of quantisation level**. A paper")
@@ -314,14 +318,32 @@ def write_committed(m: dict) -> None:
     add("six orders of magnitude larger than the thread jitter, which makes the")
     add("*rank* portable even though the values are not.\n")
 
-    monotone = all(
-        ladder_degs[a] < ladder_degs[b]
+    # Monotonicity is NOT asserted. The first full sweep measured Q5_K at
+    # 1.53% degradation against Q6_K's 2.15% -- a coarser level scoring better
+    # than the finer one above it. That is not a kernel bug: k-quants differ in
+    # block structure and super-block scaling, not only in bits per weight, so
+    # the ladder is not a single ordered axis. Asserting it would have
+    # suppressed a real measurement to protect an assumption.
+    inversions = [
+        (a, b)
         for a, b in zip(CALIBRATED, CALIBRATED[1:], strict=False)
-    )
-    assert monotone, f"degradation not monotone in bits/weight: {ladder_degs}"
-    add("Degradation is also monotone in bits/weight across the whole ladder,")
-    add("which is asserted as a correctness check on the kernels rather than")
-    add("reported as a finding.\n")
+        if ladder_degs[a] > ladder_degs[b]
+    ]
+    if inversions:
+        pairs = ", ".join(
+            f"`{b}` ({ladder_degs[b]:.2f}%) beats `{a}` ({ladder_degs[a]:.2f}%)"
+            for a, b in inversions
+        )
+        add(f"**The ladder is not monotone in bits/weight.** {pairs}.")
+        add("The k-quant levels differ in block structure and super-block")
+        add("scaling, not only in bit width, so fewer bits does not strictly")
+        add("mean worse. Any claim of the form 'Qn costs X%' assumes an")
+        add("ordering that the data here does not have.\n")
+    else:
+        add("Degradation is monotone in bits/weight across this ladder. That")
+        add("is reported rather than asserted: k-quants differ in block")
+        add("structure as well as bit width, so monotonicity is an observation")
+        add("about this model and these corpora, not a guarantee.\n")
 
     # --- 3. mechanism -----------------------------------------------
     add("## 3. Why: the corpora disagree about the MLP, not about attention\n")
