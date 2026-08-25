@@ -17,10 +17,10 @@ measure = [
     "torch>=2.2",
     "transformers>=4.40",
 ]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = ["pytest>=8", "ruff==0.14.3"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "../llm-eval-harness/src"]
 testpaths = ["tests"]
 
 [tool.ruff]

@@ -10,7 +10,20 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # The shared libraries are sibling checkouts pinned by tag rather than
+      # published packages, so they are fetched next to this repo to reproduce
+      # the local directory layout the path dependency expects.
+      - name: Check out this repo
+        uses: actions/checkout@v4
+        with:
+          path: quantization-accuracy-curves
+
+      - name: Check out llm-eval-harness alongside it
+        uses: actions/checkout@v4
+        with:
+          repository: malcomzww/llm-eval-harness
+          ref: v0.1.0
+          path: llm-eval-harness
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -21,18 +34,21 @@ jobs:
         run: uv python install 3.11
 
       - name: Install dependencies
+        working-directory: quantization-accuracy-curves
         run: uv sync --extra dev
 
       - name: Lint
-        run: uv run ruff check src tests
+        working-directory: quantization-accuracy-curves
+        run: uv run ruff check src tests scripts
 
       - name: Test
+        working-directory: quantization-accuracy-curves
         run: uv run pytest -q
 
-      # The portfolio's signature check: every number in the README is
-      # generated, so a hand-edited result fails the build rather than
-      # silently drifting from the code that produced it.
+      # Every number in the README is generated, so a hand-edited result fails
+      # the build rather than silently drifting from the code behind it.
       - name: Verify generated results are current
+        working-directory: quantization-accuracy-curves
         run: |
           if [ -f scripts/generate_results.py ]; then
             uv run python scripts/generate_results.py
