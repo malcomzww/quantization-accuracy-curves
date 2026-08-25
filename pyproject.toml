@@ -1,11 +1,22 @@
 [project]
 name = "quantization-accuracy-curves"
 version = "0.1.0"
-description = "AWQ/GPTQ/INT4/FP8 and KV-cache quantization on one model, with the accuracy degradation curve measured on a real eval."
+description = "Real llama.cpp k-quant levels on one model, measuring how much the calibration corpus moves the accuracy degradation."
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "numpy>=1.26",
+]
 
 [project.optional-dependencies]
+# The measurement stack. Kept optional so that `uv sync --extra dev` gives a
+# fast, importable test run: the arithmetic tests need only numpy and the ggml
+# library, while running the full sweep needs torch and a model download.
+measure = [
+    "llama-cpp-python>=0.3",
+    "gguf>=0.10",
+    "torch>=2.2",
+    "transformers>=4.40",
+]
 dev = ["pytest>=8", "ruff>=0.6"]
 
 [tool.pytest.ini_options]
