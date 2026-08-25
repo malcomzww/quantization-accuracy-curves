@@ -593,6 +593,19 @@ def write_raw(m: dict) -> None:
 
 
 def main() -> None:
+    # The measurement stack is an optional extra, so CI installing only
+    # `dev` has no torch. Skip cleanly rather than crashing: CI checks that
+    # this script is not broken, and it cannot check a measurement it lacks
+    # the weights to make. Exiting 0 with a stated reason is honest;
+    # exiting 1 would report a defect that is not there.
+    import importlib.util
+
+    if importlib.util.find_spec("torch") is None:
+        print("torch is absent -- the measurement stack is an optional "
+              "extra (`uv sync --extra measure`). Committed results are "
+              "unchanged; nothing was regenerated.")
+        return
+
     RESULTS.mkdir(exist_ok=True)
     m = measure()
     write_committed(m)
