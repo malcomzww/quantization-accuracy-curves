@@ -11,3 +11,7 @@ build/
 .env.*
 !.env.example
 .DS_Store
+
+# Machine-specific absolute perplexities; committed claims live in
+# results/calibration-sensitivity.md
+results/raw-measurements.md
